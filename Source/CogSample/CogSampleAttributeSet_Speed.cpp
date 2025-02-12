@@ -52,23 +52,23 @@ void UCogSampleAttributeSet_Speed::GetLifetimeReplicatedProps(TArray<class FLife
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Speed::PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const
+void UCogSampleAttributeSet_Speed::PreAttributeBaseChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue) const
 {
-    Super::PreAttributeBaseChange(Attribute, NewValue);
+    // Super::PreAttributeBaseChange(Attribute, NewValue);
     ClampAttributes(Attribute, NewValue);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Speed::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+void UCogSampleAttributeSet_Speed::PreAttributeChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue)
 {
-    Super::PreAttributeChange(Attribute, NewValue);
+    // Super::PreAttributeChange(Attribute, NewValue);
     ClampAttributes(Attribute, NewValue);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Speed::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+void UCogSampleAttributeSet_Speed::PostAttributeChange_Implementation(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
 {
-    Super::PostAttributeChange(Attribute, OldValue, NewValue);
+    // Super::PostAttributeChange(Attribute, OldValue, NewValue);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------

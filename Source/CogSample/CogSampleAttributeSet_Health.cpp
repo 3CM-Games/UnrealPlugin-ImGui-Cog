@@ -5,7 +5,7 @@
 #include "Net/Core/PushModel/PushModel.h"
 #include "Net/UnrealNetwork.h"
 
-//--------------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------3-----------
 UCogSampleAttributeSet_Health::UCogSampleAttributeSet_Health()
 {
     InitMaxHealth(1000.0f);
@@ -53,23 +53,23 @@ void UCogSampleAttributeSet_Health::GetLifetimeReplicatedProps(TArray<class FLif
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Health::PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const
+void UCogSampleAttributeSet_Health::PreAttributeBaseChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue) const
 {
-    Super::PreAttributeBaseChange(Attribute, NewValue);
+    // Super::PreAttributeBaseChange(Attribute, NewValue);
     ClampAttributes(Attribute, NewValue);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Health::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+void UCogSampleAttributeSet_Health::PreAttributeChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue)
 {
-    Super::PreAttributeChange(Attribute, NewValue);
+    // Super::PreAttributeChange(Attribute, NewValue);
     ClampAttributes(Attribute, NewValue);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Health::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+void UCogSampleAttributeSet_Health::PostAttributeChange_Implementation(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
 {
-    Super::PostAttributeChange(Attribute, OldValue, NewValue);
+    // Super::PostAttributeChange(Attribute, OldValue, NewValue);
 
     if (Attribute == GetMaxHealthAttribute())
     {

@@ -23,9 +23,9 @@ public:
     virtual void OnRep_Scale(const FGameplayAttributeData& PrevScale);
 
     virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
-    virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
-    virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
-    virtual void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const override;
+    virtual void PreAttributeChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue) override;
+    virtual void PostAttributeChange_Implementation(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
+    virtual void PreAttributeBaseChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue) const override;
     virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 
 private:
@@ -36,4 +36,3 @@ private:
     void ClampAttributes(const FGameplayAttribute& Attribute, float& NewValue) const;
 
 };
-

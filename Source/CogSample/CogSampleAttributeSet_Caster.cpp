@@ -84,9 +84,9 @@ void UCogSampleAttributeSet_Caster::OnRep_StaminaCostReduction(const FGameplayAt
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Caster::PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const
+void UCogSampleAttributeSet_Caster::PreAttributeBaseChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue) const
 {
-    Super::PreAttributeBaseChange(Attribute, NewValue);
+    // Super::PreAttributeBaseChange(Attribute, NewValue);
 
     if (Attribute == GetStaminaAttribute())
     {
@@ -95,16 +95,16 @@ void UCogSampleAttributeSet_Caster::PreAttributeBaseChange(const FGameplayAttrib
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Caster::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+void UCogSampleAttributeSet_Caster::PreAttributeChange_Implementation(const FGameplayAttribute& Attribute, float& NewValue)
 {
-    Super::PreAttributeChange(Attribute, NewValue);
+    // Super::PreAttributeChange(Attribute, NewValue);
     ClampAttributes(Attribute, NewValue);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void UCogSampleAttributeSet_Caster::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+void UCogSampleAttributeSet_Caster::PostAttributeChange_Implementation(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
 {
-    Super::PostAttributeChange(Attribute, OldValue, NewValue);
+    // Super::PostAttributeChange(Attribute, OldValue, NewValue);
 
     if (Attribute == GetMaxStaminaAttribute())
     {
