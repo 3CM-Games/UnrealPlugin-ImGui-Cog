@@ -1,8 +1,5 @@
 #include "CogImguiInputHelper.h"
 
-#include <ThirdParty/SPIRV-Reflect/SPIRV-Reflect/spirv_reflect.h>
-
-#include "CogImguiKeyInfo.h"
 #include "Engine/World.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Commands/UICommandInfo.h"
@@ -19,7 +16,7 @@
 #endif //WITH_EDITOR
 
 //--------------------------------------------------------------------------------------------------------------------------
- TArray<FCogImGuiKeyInfo> FCogImguiInputHelper::CogShortcuts;
+ TArray<FInputChord> FCogImguiInputHelper::CogPrioritizedShortcuts;
 
 //--------------------------------------------------------------------------------------------------------------------------
 APlayerController* FCogImguiInputHelper::GetFirstLocalPlayerController(const UWorld& World)
@@ -50,21 +47,21 @@ UPlayerInput* FCogImguiInputHelper::GetPlayerInput(const UWorld& World)
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-bool FCogImguiInputHelper::IsTopPriorityKey(UWorld* InWorld, const FKey& InKey)
+bool FCogImguiInputHelper::IsTopPriorityKey(const UPlayerInput& PlayerInput, const FKey& InKey)
 {
     FKeyEvent KeyEvent(InKey, FModifierKeysState(), 0, false, 0, 0);
-    return IsTopPriorityKeyEvent(InWorld, KeyEvent);
+    return IsTopPriorityKeyEvent(PlayerInput, KeyEvent);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-bool FCogImguiInputHelper::IsTopPriorityKeyEvent(UWorld* InWorld, const FKeyEvent& InKeyEvent)
+bool FCogImguiInputHelper::IsTopPriorityKeyEvent(const UPlayerInput& PlayerInput, const FKeyEvent& InKeyEvent)
 {
     //------------------------------------------------------------------------------------------------
     // We want the user to be able to use Cog shortcuts when imgui has the input.
 	//------------------------------------------------------------------------------------------------
-    for (const FCogImGuiKeyInfo& KeyInfo : CogShortcuts)
+    for (const FInputChord& InputChord : CogPrioritizedShortcuts)
     {
-        if (IsKeyEventMatchingKeyInfo(InKeyEvent, KeyInfo))
+        if (IsInputChordMatchingKeyInfo(InKeyEvent, InputChord))
         { return true; }
     }
         
@@ -94,7 +91,7 @@ bool FCogImguiInputHelper::IsTopPriorityKeyEvent(UWorld* InWorld, const FKeyEven
     //------------------------------------------------------------------------------------------------
     // We want the user to be able to use command bindings, even when imgui has the input. 
     //------------------------------------------------------------------------------------------------
-    if (IsKeyBoundToCommand(InWorld, InKeyEvent))
+    if (IsKeyBoundToCommand(PlayerInput, InKeyEvent))
     { return true; }
 
     return false;
@@ -120,39 +117,6 @@ bool FCogImguiInputHelper::IsCheckBoxStateMatchingKeyBindModifier(ECheckBoxState
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-bool FCogImguiInputHelper::IsKeyEventMatchingKeyInfo(const FKeyEvent& InKeyEvent, const FCogImGuiKeyInfo& InKeyInfo)
-{
-    const bool Result = (InKeyInfo.Key == InKeyEvent.GetKey())
-        && IsCheckBoxStateMatchingValue(InKeyInfo.Shift, InKeyEvent.IsShiftDown())
-        && IsCheckBoxStateMatchingValue(InKeyInfo.Ctrl, InKeyEvent.IsControlDown())
-        && IsCheckBoxStateMatchingValue(InKeyInfo.Alt, InKeyEvent.IsAltDown())
-        && IsCheckBoxStateMatchingValue(InKeyInfo.Cmd, InKeyEvent.IsCommandDown());
-
-    return Result;
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-#define BREAK_CHECKBOX_STATE(CheckBoxState, RequireValue, IgnoreValue)  \
-{                                                                       \
-    if (CheckBoxState == ECheckBoxState::Checked)                       \
-    {                                                                   \
-        RequireValue = true;                                            \
-        IgnoreValue = false;                                            \
-    }                                                                   \
-    else if (CheckBoxState == ECheckBoxState::Unchecked)                \
-    {                                                                   \
-        RequireValue = false;                                           \
-        IgnoreValue = true;                                             \
-    }                                                                   \
-    else if (CheckBoxState == ECheckBoxState::Undetermined)             \
-    {                                                                   \
-        RequireValue = false;                                           \
-        IgnoreValue = false;                                            \
-    }                                                                   \
-}                                                                       \
-
-
-//--------------------------------------------------------------------------------------------------------------------------
 ECheckBoxState FCogImguiInputHelper::MakeCheckBoxState(uint8 RequireValue, uint8 IgnoreValue)
 {
     if (RequireValue)
@@ -169,72 +133,35 @@ ECheckBoxState FCogImguiInputHelper::MakeCheckBoxState(uint8 RequireValue, uint8
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void FCogImguiInputHelper::KeyBindToKeyInfo(const FKeyBind& KeyBind, FCogImGuiKeyInfo& KeyInfo)
+bool FCogImguiInputHelper::IsInputChordMatchingKeyInfo(const FKeyEvent& InKeyEvent, const FInputChord& InInputChord)
 {
-    KeyInfo.Key = KeyBind.Key;
-    KeyInfo.Shift = MakeCheckBoxState(KeyBind.Shift, KeyBind.bIgnoreShift);
-    KeyInfo.Ctrl = MakeCheckBoxState(KeyBind.Control, KeyBind.bIgnoreCtrl);
-    KeyInfo.Alt = MakeCheckBoxState(KeyBind.Alt, KeyBind.bIgnoreAlt);
-    KeyInfo.Alt = MakeCheckBoxState(KeyBind.Cmd, KeyBind.bIgnoreCmd);
-}
-
-
-//--------------------------------------------------------------------------------------------------------------------------
-void FCogImguiInputHelper::KeyInfoToKeyBind(const FCogImGuiKeyInfo& KeyInfo, FKeyBind& KeyBind)
-{
-    KeyBind.Key = KeyInfo.Key;
-    BREAK_CHECKBOX_STATE(KeyInfo.Shift, KeyBind.Shift, KeyBind.bIgnoreShift);
-    BREAK_CHECKBOX_STATE(KeyInfo.Ctrl, KeyBind.Control, KeyBind.bIgnoreCtrl);
-    BREAK_CHECKBOX_STATE(KeyInfo.Alt, KeyBind.Alt, KeyBind.bIgnoreAlt);
-    BREAK_CHECKBOX_STATE(KeyInfo.Cmd, KeyBind.Cmd, KeyBind.bIgnoreCmd);
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-bool FCogImguiInputHelper::IsKeyBindMatchingKeyInfo(const FKeyBind& InKeyBind, const FCogImGuiKeyInfo& InKeyInfo)
-{
-    const bool Result = (InKeyInfo.Key == InKeyBind.Key)
-        && IsCheckBoxStateMatchingKeyBindModifier(InKeyInfo.Shift, InKeyBind.Shift, InKeyBind.bIgnoreShift)
-        && IsCheckBoxStateMatchingKeyBindModifier(InKeyInfo.Ctrl, InKeyBind.Control, InKeyBind.bIgnoreCtrl)
-        && IsCheckBoxStateMatchingKeyBindModifier(InKeyInfo.Alt, InKeyBind.Alt, InKeyBind.bIgnoreAlt)
-        && IsCheckBoxStateMatchingKeyBindModifier(InKeyInfo.Cmd, InKeyBind.Cmd, InKeyBind.bIgnoreCmd);
+    const bool Result = (InInputChord.Key == InKeyEvent.GetKey())
+        && (InInputChord.bShift == InKeyEvent.IsShiftDown())
+        && (InInputChord.bCtrl == InKeyEvent.IsControlDown())
+        && (InInputChord.bAlt == InKeyEvent.IsAltDown())
+        && (InInputChord.bCmd == InKeyEvent.IsCommandDown());
 
     return Result;
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-bool FCogImguiInputHelper::WasKeyInfoJustPressed(APlayerController& PlayerController, const FCogImGuiKeyInfo& KeyInfo)
+bool FCogImguiInputHelper::IsKeyBindMatchingInputChord(const FKeyBind& InKeyBind, const FInputChord& InInputChord)
 {
-    if (PlayerController.WasInputKeyJustPressed(KeyInfo.Key))
-    {
-        const FModifierKeysState& ModifierKeys = FSlateApplication::Get().GetModifierKeys();
+    const bool Result =
+        InKeyBind.bDisabled == false
+        && (InInputChord.Key == InKeyBind.Key)
+        && (InInputChord.bShift == InKeyBind.Shift)
+        && (InInputChord.bCtrl == InKeyBind.Control)
+        && (InInputChord.bAlt == InKeyBind.Alt)
+        && (InInputChord.bCmd == InKeyBind.Cmd);
 
-        const bool MatchCtrl    = IsCheckBoxStateMatchingValue(KeyInfo.Ctrl,    ModifierKeys.IsControlDown());
-        const bool MatchAlt     = IsCheckBoxStateMatchingValue(KeyInfo.Alt,     ModifierKeys.IsAltDown());
-        const bool MatchShift   = IsCheckBoxStateMatchingValue(KeyInfo.Shift,   ModifierKeys.IsShiftDown());
-        const bool MatchCmd     = IsCheckBoxStateMatchingValue(KeyInfo.Cmd,     ModifierKeys.IsCommandDown());
-
-        const bool Result = MatchCtrl && MatchAlt && MatchShift && MatchCmd;
-        return Result;
-    }
-
-    return false;
+    return Result;
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-bool FCogImguiInputHelper::IsKeyBoundToCommand(UWorld* World, const FKeyEvent& KeyEvent)
+bool FCogImguiInputHelper::IsKeyBoundToCommand(const UPlayerInput& PlayerInput, const FKeyEvent& KeyEvent)
 {
-    if (World == nullptr)
-    {
-        return false;
-    }
-
-    const UPlayerInput* PlayerInput = GetPlayerInput(*World);
-    if (PlayerInput == nullptr)
-    {
-        return false;
-    }
-
-    for (const FKeyBind& KeyBind : PlayerInput->DebugExecBindings)
+    for (const FKeyBind& KeyBind : PlayerInput.DebugExecBindings)
     {
         if (IsKeyEventMatchingKeyBind(KeyEvent, KeyBind))
         {
@@ -287,93 +214,52 @@ EMouseCursor::Type FCogImguiInputHelper::ToSlateMouseCursor(ImGuiMouseCursor Mou
 {
     switch (MouseCursor)
     {
-    case ImGuiMouseCursor_Arrow:        return EMouseCursor::Default;
-    case ImGuiMouseCursor_TextInput:    return EMouseCursor::TextEditBeam;
-    case ImGuiMouseCursor_ResizeAll:    return EMouseCursor::CardinalCross;
-    case ImGuiMouseCursor_ResizeNS:     return  EMouseCursor::ResizeUpDown;
-    case ImGuiMouseCursor_ResizeEW:     return  EMouseCursor::ResizeLeftRight;
-    case ImGuiMouseCursor_ResizeNESW:   return  EMouseCursor::ResizeSouthWest;
-    case ImGuiMouseCursor_ResizeNWSE:   return  EMouseCursor::ResizeSouthEast;
+        case ImGuiMouseCursor_Arrow:        return EMouseCursor::Default;
+        case ImGuiMouseCursor_TextInput:    return EMouseCursor::TextEditBeam;
+        case ImGuiMouseCursor_ResizeAll:    return EMouseCursor::CardinalCross;
+        case ImGuiMouseCursor_ResizeNS:     return  EMouseCursor::ResizeUpDown;
+        case ImGuiMouseCursor_ResizeEW:     return  EMouseCursor::ResizeLeftRight;
+        case ImGuiMouseCursor_ResizeNESW:   return  EMouseCursor::ResizeSouthWest;
+        case ImGuiMouseCursor_ResizeNWSE:   return  EMouseCursor::ResizeSouthEast;
+        case ImGuiMouseCursor_Hand:         return  EMouseCursor::Hand;
+        case ImGuiMouseCursor_NotAllowed:   return  EMouseCursor::SlashedCircle;
 
-    case ImGuiMouseCursor_None:
-    default:
-        return EMouseCursor::None;
+        case ImGuiMouseCursor_None:
+        default:
+            return EMouseCursor::None;
     }
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-FString FCogImguiInputHelper::CommandToString(const UWorld& World, const FString& Command)
+FString FCogImguiInputHelper::InputChordToString(const FInputChord& InInputChord)
 {
-    const UPlayerInput* PlayerInput = GetPlayerInput(World);
-    if (PlayerInput == nullptr)
-    {
-        return FString();
-    }
-
-    const FKeyBind* Result = PlayerInput->DebugExecBindings.FindByPredicate([&](const FKeyBind& KeyBind) { return KeyBind.Command == Command; });
-    if (Result == nullptr)
-    {
-        return FString();
-    }
-
-    return KeyBindToString(*Result);
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-FString FCogImguiInputHelper::CommandToString(const UPlayerInput* PlayerInput, const FString& Command)
-{
-    if (PlayerInput == nullptr)
-    {
-        return FString();
-    }
-
-    const FKeyBind* Result = PlayerInput->DebugExecBindings.FindByPredicate([&](const FKeyBind& KeyBind) { return KeyBind.Command == Command; });
-    if (Result == nullptr)
-    {
-        return FString();
-    }
-
-    return KeyBindToString(*Result);
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-FString FCogImguiInputHelper::KeyBindToString(const FKeyBind& InKeyBind)
-{
-    FCogImGuiKeyInfo KeyInfo;
-    KeyBindToKeyInfo(InKeyBind, KeyInfo);
-    return KeyInfoToString(KeyInfo);
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-FString FCogImguiInputHelper::KeyInfoToString(const FCogImGuiKeyInfo& InKeyInfo)
-{
-    if (InKeyInfo == FKey())
+    if (InInputChord.Key == FKey())
     {
         return FString("");
     }
     
     FString Result = "[";
-    if (InKeyInfo.Alt == ECheckBoxState::Checked)
+    if (InInputChord.bAlt)
     {
         Result += FString("Alt ");
     }
 
-    if (InKeyInfo.Shift  == ECheckBoxState::Checked)
+    if (InInputChord.bShift)
     {
         Result += FString("Shift ");
     }
 
-    if (InKeyInfo.Ctrl  == ECheckBoxState::Checked)
+    if (InInputChord.bCtrl)
     {
         Result += FString("Ctrl ");
     }
 
-    if (InKeyInfo.Cmd  == ECheckBoxState::Checked)
+    if (InInputChord.bCmd)
     {
         Result += FString("Cmd ");
     }
 
-    Result += InKeyInfo.Key.ToString();
+    Result += InInputChord.Key.ToString();
     Result += FString("]");
     
     return Result;
@@ -413,22 +299,6 @@ bool FCogImguiInputHelper::IsKeyEventMatchingKeyBind(const FKeyEvent& KeyEvent, 
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-bool FCogImguiInputHelper::IsKeyInfoPressed(const UPlayerInput* PlayerInput, const FCogImGuiKeyInfo& InKeyInfo)
-{
-    const bool bKeyPressed = PlayerInput->WasJustPressed(InKeyInfo.Key);
-    if (bKeyPressed == false)
-    { return false; }
-    
-    if (IsCheckBoxStateMatchingValue(InKeyInfo.Ctrl, PlayerInput->IsCtrlPressed())
-        && IsCheckBoxStateMatchingValue(InKeyInfo.Shift, PlayerInput->IsShiftPressed())
-        && IsCheckBoxStateMatchingValue(InKeyInfo.Alt, PlayerInput->IsAltPressed())
-        && IsCheckBoxStateMatchingValue(InKeyInfo.Cmd, PlayerInput->IsCmdPressed()))
-    { return true; }
-
-    return false;
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
 bool FCogImguiInputHelper::IsKeyBoundToCommand(const UPlayerInput* InPlayerInput, const FKeyEvent& KeyEvent)
 {
     if (InPlayerInput == nullptr)
@@ -450,7 +320,7 @@ bool FCogImguiInputHelper::IsKeyBoundToCommand(const UPlayerInput* InPlayerInput
 //--------------------------------------------------------------------------------------------------------------------------
 bool FCogImguiInputHelper::IsMouseInsideMainViewport()
 {
-    if (ImGuiViewportP* Viewport = (ImGuiViewportP*)ImGui::GetMainViewport())
+    if (ImGuiViewportP* Viewport = static_cast<ImGuiViewportP*>(ImGui::GetMainViewport()))
     {
         ImGuiIO& IO = ImGui::GetIO();
         const bool Result = Viewport->GetMainRect().Contains(IO.MousePos);
@@ -461,29 +331,28 @@ bool FCogImguiInputHelper::IsMouseInsideMainViewport()
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void FCogImguiInputHelper::SetShortcuts(const UWorld& World, const TArray<FCogImGuiKeyInfo>& InShortcuts, bool InDisableCommandsConflictingWithShortcuts)
+bool FCogImguiInputHelper::DisableCommandsConflictingWithShortcuts(UPlayerInput& PlayerInput)
 {
-    CogShortcuts = InShortcuts;
-
-    if (InDisableCommandsConflictingWithShortcuts == false )
-    { return; }
-
-    UPlayerInput* PlayerInput = FCogImguiInputHelper::GetPlayerInput(World);
-    if (PlayerInput == nullptr)
-    { return; }
+    bool HasDisabled = false;
     
-    for (const FCogImGuiKeyInfo& Shortcut : CogShortcuts)
+    for (const FInputChord& Shortcut : CogPrioritizedShortcuts)
     {
-        for (FKeyBind& KeyBind : PlayerInput->DebugExecBindings)
+        for (FKeyBind& KeyBind : PlayerInput.DebugExecBindings)
         {
-            if (IsKeyBindMatchingKeyInfo(KeyBind, Shortcut))
+            if (IsKeyBindMatchingInputChord(KeyBind, Shortcut))
             {
                 KeyBind.bDisabled = true;
+                HasDisabled = false;
             }
         }
     }
 
-    PlayerInput->SaveConfig();
+    if (HasDisabled)
+    {
+        PlayerInput.SaveConfig();
+    }
+    
+    return false;
 }
 
 //--------------------------------------------------------------------------------------------------------------------------

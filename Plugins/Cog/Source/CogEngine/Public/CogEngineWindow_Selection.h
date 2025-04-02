@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "CogCommonConfig.h"
+#include "CogEngineDataAsset.h"
 #include "GameFramework/Actor.h"
 #include "CogWindow.h"
 #include "CogEngineWindow_Selection.generated.h"
@@ -23,19 +24,9 @@ public:
 
     virtual void Shutdown() override;
 
-    const TArray<TSubclassOf<AActor>>& GetActorClasses() const { return ActorClasses; }
-
-    void SetActorClasses(const TArray<TSubclassOf<AActor>>& Value) { ActorClasses = Value; }
-
-    ETraceTypeQuery GetTraceType() const { return TraceType; }
-
-    void SetTraceType(ETraceTypeQuery Value) { TraceType = Value; }
-
 protected:
 
     virtual void TryReapplySelection() const;
-
-    virtual void ResetConfig() override;
 
     virtual void PreSaveConfig() override;
 
@@ -57,9 +48,13 @@ protected:
 
     virtual void RenderActorContextMenu(AActor& Actor);
 
+    virtual const TArray<TSubclassOf<AActor>>& GetSelectionFilters() const;
+
+    virtual ETraceTypeQuery GetSelectionTraceChannel() const;
+
     TSubclassOf<AActor> GetSelectedActorClass() const;
 
-    void TickSelectionMode();
+    bool TickSelectionMode();
 
     FVector LastSelectedActorLocation = FVector::ZeroVector;
 
@@ -67,13 +62,11 @@ protected:
 
     int32 WaitInputReleased = 0;
 
-    TArray<TSubclassOf<AActor>> ActorClasses;
+    TWeakObjectPtr<UCogEngineConfig_Selection> Config;
 
-    ETraceTypeQuery TraceType = TraceTypeQuery1;
+    TWeakObjectPtr<const UCogEngineDataAsset> Asset;
 
-    TObjectPtr<UCogEngineConfig_Selection> Config;
-
-	ImGuiTextFilter Filter;
+    ImGuiTextFilter Filter;
 };
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -93,6 +86,9 @@ public:
     UPROPERTY(Config)
     int32 SelectedClassIndex = 0;
 
+    UPROPERTY(Config)
+    FInputChord Shortcut_ToggleSelection = FInputChord(EKeys::F5);
+    
     virtual void Reset() override
     {
         Super::Reset();
@@ -100,5 +96,6 @@ public:
         bReapplySelection = true;
         SelectionName.Reset();
         SelectedClassIndex = 0;
+        Shortcut_ToggleSelection = FInputChord(EKeys::F5);
     }
 };

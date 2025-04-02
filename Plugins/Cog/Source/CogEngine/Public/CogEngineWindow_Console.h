@@ -11,42 +11,51 @@ class COGENGINE_API FCogEngineWindow_Console : public FCogWindow
 {
     typedef FCogWindow Super;
 
-public:
-    
 protected:
 
     virtual void RenderHelp() override;
 
     virtual void Initialize() override;
 
+    virtual void PreBegin(ImGuiWindowFlags& WindowFlags) override;
+
+    virtual void PostBegin() override;
+
     virtual void RenderMainMenuWidget() override;
     
     virtual void RenderContent() override;
 
+    virtual void RenderTick(float DeltaTime) override;
+
 private:
 
+    static IConsoleObject* GetCommandObjectFromCommandLine(const FString& InCommandLine);
 
-    static FString GetConsoleCommandHelp(const FString& InCommandName);
+    static FString GetConsoleCommandHelp(const FString& InCommandLine);
+
+    static int OnTextInputCallbackStub(ImGuiInputTextCallbackData* InData);
 
     void RenderMenu();
 
     void RenderInput();
+    
+    void SelectNextCommand();
+    
+    void SelectPreviousCommand();
 
     int OnTextInputCallback(ImGuiInputTextCallbackData* InData);
 
-    static int OnTextInputCallbackStub(ImGuiInputTextCallbackData* InData);
-
     void RenderCommandList();
 
-    void RenderCommand(const FString& CommandName, int32 Index);
+    void RenderCommand(const FString& CommandName, int32 Index, float RegionMinY, float RegionMaxY);
 
     void RefreshCommandList();
-
-    void RenderCommandHelp();
+    
+    void ActivateInputText() const;
 
     void ExecuteCommand(const FString& InCommand);
 
-    int32 SelectedCommandIndex = -1;
+    int32 SelectedCommandIndex = INDEX_NONE;
     
     TArray<FString> CommandList;
     
@@ -56,18 +65,20 @@ private:
     
     bool bScroll = false;
 
-    bool bRequestInputFocus = false;
-    
     bool bIsWindowFocused = false;
     
-    bool bPopupCommandListOnWidgetMode = false;
-
-    ImGuiID InputIdOnWidgetMode = 0;
-
-    bool bIsRenderingWidget = false;
-    
     bool bSetBufferToSelectedCommand = false;
-    
+
+    bool bIsWidgetMode = false;
+
+    ImGuiID InputTextId = 0;
+
+    bool WidgetMode_OpenCommandList = false;
+
+    ImVec2 WidgetMode_CommandListPosition = ImVec2(0, 0);
+
+    bool WidgetMode_IsTextInputActive = false;
+
     TWeakObjectPtr<UCogEngineConfig_Console> Config;
 };
 
@@ -93,6 +104,9 @@ public:
     
     UPROPERTY(Config)
     bool UseClipper = false;
+
+    UPROPERTY(Config)
+    bool ShowHelp = true;
     
     UPROPERTY(Config)
     int32 NumHistoryCommands = 10;
@@ -103,19 +117,13 @@ public:
     UPROPERTY(Config)
     FVector4f HistoryColor = FVector4f(1.0f, 1.0f, 1.0f, 0.5f);
 
-    
-    UCogEngineConfig_Console()
-    {
-        Reset();
-    }
-
     virtual void Reset() override
     {
         Super::Reset();
 
         SortCommands = false;
         DockInputInMenuBar = false;
-        FocusWidgetWhenAppearing = true;
+        FocusWidgetWhenAppearing = false;
         UseClipper = false;
         NumHistoryCommands = 10;
         CompletionMinimumCharacters = 1;
